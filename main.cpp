@@ -7,34 +7,12 @@
 #include <vector>
 
 
-class TCube {
-    public:
-        explicit TCube(const std::string &value)
-            : Value(value) {
-        }
-        const std::string &GetValue() const {
-            return Value;
-        }
-        void Permute(const std::vector<size_t> &cycle) {
-            char t = Value[cycle[0]];
-            size_t n = cycle.size();
-            for (size_t i = n - 1; i > 0; --i)
-                Value[cycle[(i + 1) % n]] = Value[cycle[i]];
-            Value[cycle[1]] = t;
-        }
-
-
-    private:
-        std::string Value;
-};
-
-
 class TBaseMoveImpl;
 using TBaseMoveImplPtr = std::shared_ptr<TBaseMoveImpl>;
 class TBaseMoveImpl {
     public:
         virtual ~TBaseMoveImpl() {}
-        virtual void Apply(TCube &cube) const = 0;
+        virtual void Apply(std::string &cube) const = 0;
         void SetMoveId(const std::string &id) {
             Id = id;
         }
@@ -43,32 +21,22 @@ class TBaseMoveImpl {
             result->SetMoveId(Id);
             return result;
         }
-        void FillMoveIds(std::vector<std::string> &ids) const {
-            if (!Id.empty())
-                ids.push_back(Id);
-            else
-                DoFillMoveIds(ids);
-        }
-
 
     private:
         std::string Id;
 
         virtual TBaseMoveImplPtr DoClone() const = 0;
-        virtual void DoFillMoveIds(std::vector<std::string> &ids) const = 0;
 };
 
 
 class TEmptyMove : public TBaseMoveImpl {
     public:
-        void Apply(TCube &) const override {
+        void Apply(std::string &) const override {
         }
 
     private:
         TBaseMoveImplPtr DoClone() const override {
             return TBaseMoveImplPtr(new TEmptyMove());
-        }
-        void DoFillMoveIds(std::vector<std::string> &) const override {
         }
 };
 
@@ -79,8 +47,12 @@ class TSimpleCycleMove : public TBaseMoveImpl {
             : Cycle(cycle)
         {
         }
-        void Apply(TCube &cube) const override {
-            cube.Permute(Cycle);
+        void Apply(std::string &cube) const override {
+            char t = cube[Cycle[0]];
+            size_t n = Cycle.size();
+            for (size_t i = n - 1; i > 0; --i)
+                cube[Cycle[(i + 1) % n]] = cube[Cycle[i]];
+            cube[Cycle[1]] = t;
         }
 
     private:
@@ -88,8 +60,6 @@ class TSimpleCycleMove : public TBaseMoveImpl {
 
         TBaseMoveImplPtr DoClone() const override {
             return TBaseMoveImplPtr(new TSimpleCycleMove(Cycle));
-        }
-        void DoFillMoveIds(std::vector<std::string> &) const override {
         }
 };
 
@@ -101,7 +71,7 @@ class TCompositeMove : public TBaseMoveImpl {
             , Right(right)
         {
         }
-        void Apply(TCube &cube) const override {
+        void Apply(std::string &cube) const override {
             if (!!Left)
                 Left->Apply(cube);
             if (!!Right)
@@ -116,13 +86,6 @@ class TCompositeMove : public TBaseMoveImpl {
             auto left = !!Left ? Left->Clone() : TBaseMoveImplPtr();
             auto right = !!Right ? Right->Clone() : TBaseMoveImplPtr();
             return TBaseMoveImplPtr(new TCompositeMove(left, right));
-        }
-
-        void DoFillMoveIds(std::vector<std::string> &ids) const override {
-            if (!!Left)
-                Left->FillMoveIds(ids);
-            if (!!Right)
-                Right->FillMoveIds(ids);
         }
 };
 
@@ -162,19 +125,7 @@ class TMove {
             return *this;
         }
 
-        void SetMoveId(const std::string &id) {
-            if (!!Impl)
-                Impl->SetMoveId(id);
-        }
-
-        std::vector<std::string> GetMoveIds() const {
-            std::vector<std::string> result;
-            if (!!Impl)
-                Impl->FillMoveIds(result);
-            return result;
-        }
-
-        void operator () (TCube &cube) const {
+        void operator () (std::string &cube) const {
             if (!!Impl)
                 Impl->Apply(cube);
         }
@@ -190,26 +141,19 @@ TMove operator + (TMove lft, const TMove &rgt) {
 
 
 template<typename T>
-TMove DoCreateComposite(T move) {
+TMove CreateComposite(T move) {
     return TMove(move);
 }
 
 template<typename T, typename ...Targs>
-TMove DoCreateComposite(T first, Targs ...args) {
-    auto result = DoCreateComposite(first);;
-    result += DoCreateComposite(args...);
+TMove CreateComposite(T first, Targs ...args) {
+    auto result = CreateComposite(first);;
+    result += CreateComposite(args...);
     return result;
 }
 
-template<typename ...Targs>
-TMove CreateComposite(const std::string &id, Targs ...args) {
-    auto move = DoCreateComposite(args...);
-    move.SetMoveId(id);
-    return move;
-}
 
-
-std::vector<TMove> GenerateAllMoves() {
+std::unordered_map<std::string, TMove> GenerateAllMoves() {
 
 /*
           B
@@ -238,71 +182,76 @@ std::vector<TMove> GenerateAllMoves() {
 
 */
 
-    std::vector<TMove> allMoves;
-    allMoves.push_back(CreateComposite("L2", TMove({30, 35}), TMove({31, 34}), TMove({32, 33}), TMove({3, 18}), TMove({0, 15}), TMove({6, 21}), TMove({9, 24}), TMove({12, 27})));
-    allMoves.push_back(CreateComposite("R2", TMove({36, 41}), TMove({37, 40}), TMove({38, 39}), TMove({5, 20}), TMove({2, 17}), TMove({14, 29}), TMove({11, 26}), TMove({8, 23})));
-    allMoves.push_back(CreateComposite("F2", TMove({0, 5}), TMove({1, 4}), TMove({2, 3}), TMove({12, 23}), TMove({13, 22}), TMove({14, 21}), TMove({32, 39}), TMove({35, 36})));
-    allMoves.push_back(CreateComposite("B2", TMove({15, 20}), TMove({16, 19}), TMove({17, 18}), TMove({6, 29}), TMove({7, 28}), TMove({8, 27}), TMove({30, 41}), TMove({33, 38})));
-    auto u = CreateComposite("U", TMove({6, 8, 14, 12}), TMove({7, 11, 13, 9}), TMove({0, 30, 20, 36}), TMove({1, 31, 19, 37}), TMove({2, 32, 18, 38}));
-    allMoves.push_back(u);
-    allMoves.push_back(CreateComposite("U2", u, u));
-    allMoves.push_back(CreateComposite("U'", u, u, u));
-    auto d = CreateComposite("D", TMove({21, 23, 29, 27}), TMove({22, 26, 28, 24}), TMove({3, 39, 17, 33}), TMove({4, 40, 16, 34}), TMove({5, 41, 15, 35}));
-    allMoves.push_back(d);
-    allMoves.push_back(CreateComposite("D2", d, d));
-    allMoves.push_back(CreateComposite("D'", d, d, d));
+    std::unordered_map<std::string, TMove> allMoves;
+    allMoves["L2"] = CreateComposite(TMove({30, 35}), TMove({31, 34}), TMove({32, 33}), TMove({3, 18}), TMove({0, 15}), TMove({6, 21}), TMove({9, 24}), TMove({12, 27}));
+    allMoves["R2"] = CreateComposite(TMove({36, 41}), TMove({37, 40}), TMove({38, 39}), TMove({5, 20}), TMove({2, 17}), TMove({14, 29}), TMove({11, 26}), TMove({8, 23}));
+    allMoves["F2"] = CreateComposite(TMove({0, 5}), TMove({1, 4}), TMove({2, 3}), TMove({12, 23}), TMove({13, 22}), TMove({14, 21}), TMove({32, 39}), TMove({35, 36}));
+    allMoves["B2"] = CreateComposite(TMove({15, 20}), TMove({16, 19}), TMove({17, 18}), TMove({6, 29}), TMove({7, 28}), TMove({8, 27}), TMove({30, 41}), TMove({33, 38}));
+    auto u = CreateComposite(TMove({6, 8, 14, 12}), TMove({7, 11, 13, 9}), TMove({0, 30, 20, 36}), TMove({1, 31, 19, 37}), TMove({2, 32, 18, 38}));
+    allMoves["U"] = u;
+    allMoves["U2"] = CreateComposite(u, u);
+    allMoves["U'"] = CreateComposite(u, u, u);
+    auto d = CreateComposite(TMove({21, 23, 29, 27}), TMove({22, 26, 28, 24}), TMove({3, 39, 17, 33}), TMove({4, 40, 16, 34}), TMove({5, 41, 15, 35}));
+    allMoves["D"] = d;
+    allMoves["D2"] = CreateComposite(d, d);
+    allMoves["D'"] = CreateComposite(d, d, d);
     return allMoves;
 }
 
 
 
-bool DoSolve(const std::string &startString, TMove &fwd, TMove &bwd) {
+bool DoSolve(const std::string &startCube, std::vector<std::string> &fwd, std::vector<std::string> &bwd) {
     auto allMoves = GenerateAllMoves();
-    TCube startCube(startString), endCube("rrrrrrbbbbbbbbboooooogggggggggwwwwwwyyyyyy");
+    std::string endCube = "rrrrrrbbbbbbbbboooooogggggggggwwwwwwyyyyyy";
+    if (startCube == endCube)
+        return true;
     //TCube startCube("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"), endCube("rrrrrrbbbbbbbbbrrrrrrbbbbbbbbbwwwwwwwwwwww");
     //TCube startCube("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"), endCube("rrrrrrbbbbbbbbboooooogggggggggwwwwwwyyyyyy");
-    using TDict = std::unordered_map<std::string, TMove>;
+    using TMoveCodes = std::vector<std::string>;
+    using TDict = std::unordered_map<std::string, TMoveCodes>;
     using TQueue = std::list<std::string>;
     TDict fwdReached, bwdReached;
     TQueue fwdQueue, bwdQueue;
-    fwdReached[startCube.GetValue()] = TMove();
-    fwdQueue.push_back(startCube.GetValue());
-    bwdReached[endCube.GetValue()] = TMove();
-    bwdQueue.push_back(endCube.GetValue());
+    fwdReached[startCube];
+    fwdQueue.push_back(startCube);
+    bwdReached[endCube];
+    bwdQueue.push_back(endCube);
     while (!fwdQueue.empty() || !bwdQueue.empty()) {
         if (!fwdQueue.empty()) {
-            auto cubeString = fwdQueue.front();
-            auto currentMove = fwdReached[cubeString];
+            auto cube = fwdQueue.front();
+            auto currentMove = fwdReached[cube];
             fwdQueue.pop_front();
             for (const auto &move : allMoves) {
-                TCube cube(cubeString);
-                move(cube);
-                if (fwdReached.find(cube.GetValue()) == fwdReached.end()) {
-                    fwdReached[cube.GetValue()] = currentMove + move;
-                    fwdQueue.push_back(cube.GetValue());
+                move.second(cube);
+                if (fwdReached.find(cube) == fwdReached.end()) {
+                    auto &nextMove = fwdReached[cube];
+                    nextMove = currentMove;
+                    nextMove.push_back(move.first);
+                    fwdQueue.push_back(cube);
                 }
-                if (bwdReached.find(cube.GetValue()) != bwdReached.end()) {
-                    fwd = fwdReached[cube.GetValue()];
-                    bwd = bwdReached[cube.GetValue()];
+                if (bwdReached.find(cube) != bwdReached.end()) {
+                    fwd = fwdReached[cube];
+                    bwd = bwdReached[cube];
                     return true;
                 }
             }
         }
         if (!bwdQueue.empty()) {
-            auto cubeString = bwdQueue.front();
-            auto currentMove = bwdReached[cubeString];
-            std::cout << bwdQueue.size() << ' ' << bwdReached.size() << ' ' << currentMove.GetMoveIds().size() << std::endl;
+            auto cube = bwdQueue.front();
+            auto currentMove = bwdReached[cube];
+            //std::cout << bwdQueue.size() << ' ' << bwdReached.size() << ' ' << currentMove.GetMoveIds().size() << std::endl;
             bwdQueue.pop_front();
             for (const auto &move : allMoves) {
-                TCube cube(cubeString);
-                move(cube);
-                if (bwdReached.find(cube.GetValue()) == bwdReached.end()) {
-                    bwdReached[cube.GetValue()] = currentMove + move;
-                    bwdQueue.push_back(cube.GetValue());
+                move.second(cube);
+                if (bwdReached.find(cube) == bwdReached.end()) {
+                    auto &nextMove = bwdReached[cube];
+                    nextMove = currentMove;
+                    nextMove.push_back(move.first);
+                    bwdQueue.push_back(cube);
                 }
-                if (fwdReached.find(cube.GetValue()) != fwdReached.end()) {
-                    fwd = fwdReached[cube.GetValue()];
-                    bwd = bwdReached[cube.GetValue()];
+                if (fwdReached.find(cube) != fwdReached.end()) {
+                    fwd = fwdReached[cube];
+                    bwd = bwdReached[cube];
                     return true;
                 }
             }
@@ -330,11 +279,11 @@ std::vector<std::string> ReverseMoves(const std::vector<std::string> &moves) {
 int main() {
     std::string startString;
     std::cin >> startString;
-    TMove fwd, bwd;
+    std::vector<std::string> fwd, bwd;
     if (DoSolve(startString, fwd, bwd)) {
-        for (const auto &id : fwd.GetMoveIds())
+        for (const auto &id : fwd)
             std::cout << ' ' << id;
-        for (const auto &id : ReverseMoves(bwd.GetMoveIds()))
+        for (const auto &id : ReverseMoves(bwd))
             std::cout << ' ' << id;
         std::cout << std::endl;
     } else {
