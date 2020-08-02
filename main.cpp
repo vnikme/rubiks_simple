@@ -166,6 +166,12 @@ std::unordered_map<std::string, TMove> GenerateAllMoves() {
         4 0 5
           3
 
+          o
+          b
+        w r y
+          g
+
+
                15 16 17
                18 19 20
 
@@ -199,14 +205,19 @@ std::unordered_map<std::string, TMove> GenerateAllMoves() {
 }
 
 
+std::unordered_map<std::string, TMove> GenerateAll2Moves() {
+    std::unordered_map<std::string, TMove> result;
+    for (const auto &move : GenerateAllMoves()) {
+        if (move.first.size() == 2 && move.first[1] == '2')
+            result[move.first] = move.second;
+    }
+    return result;
+}
 
-bool DoSolve(const std::string &startCube, std::vector<std::string> &fwd, std::vector<std::string> &bwd) {
-    auto allMoves = GenerateAllMoves();
-    std::string endCube = "rrrrrrbbbbbbbbboooooogggggggggwwwwwwyyyyyy";
+
+bool DoSolve(const std::string &startCube, const std::string &endCube, const std::unordered_map<std::string, TMove> &allMoves, std::vector<std::string> &fwd, std::vector<std::string> &bwd) {
     if (startCube == endCube)
         return true;
-    //TCube startCube("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"), endCube("rrrrrrbbbbbbbbbrrrrrrbbbbbbbbbwwwwwwwwwwww");
-    //TCube startCube("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"), endCube("rrrrrrbbbbbbbbboooooogggggggggwwwwwwyyyyyy");
     using TMoveCodes = std::vector<std::string>;
     using TDict = std::unordered_map<std::string, TMoveCodes>;
     using TQueue = std::list<std::string>;
@@ -215,13 +226,15 @@ bool DoSolve(const std::string &startCube, std::vector<std::string> &fwd, std::v
     fwdReached[startCube];
     fwdQueue.push_back(startCube);
     bwdReached[endCube];
-    bwdQueue.push_back(endCube);
+    //bwdQueue.push_back(endCube);
     while (!fwdQueue.empty() || !bwdQueue.empty()) {
         if (!fwdQueue.empty()) {
-            auto cube = fwdQueue.front();
-            auto currentMove = fwdReached[cube];
+            auto current = fwdQueue.front();
+            auto currentMove = fwdReached[current];
+            std::cout << fwdQueue.size() << ' ' << fwdReached.size() << ' ' << currentMove.size() << std::endl;
             fwdQueue.pop_front();
             for (const auto &move : allMoves) {
+                auto cube = current;
                 move.second(cube);
                 if (fwdReached.find(cube) == fwdReached.end()) {
                     auto &nextMove = fwdReached[cube];
@@ -237,11 +250,12 @@ bool DoSolve(const std::string &startCube, std::vector<std::string> &fwd, std::v
             }
         }
         if (!bwdQueue.empty()) {
-            auto cube = bwdQueue.front();
-            auto currentMove = bwdReached[cube];
-            //std::cout << bwdQueue.size() << ' ' << bwdReached.size() << ' ' << currentMove.GetMoveIds().size() << std::endl;
+            auto current = bwdQueue.front();
+            auto currentMove = bwdReached[current];
+            //std::cout << bwdQueue.size() << ' ' << bwdReached.size() << ' ' << currentMove.size() << std::endl;
             bwdQueue.pop_front();
             for (const auto &move : allMoves) {
+                auto cube = current;
                 move.second(cube);
                 if (bwdReached.find(cube) == bwdReached.end()) {
                     auto &nextMove = bwdReached[cube];
@@ -256,6 +270,7 @@ bool DoSolve(const std::string &startCube, std::vector<std::string> &fwd, std::v
                 }
             }
         }
+        //std::cout << std::endl;
     }
     return false;
 }
@@ -276,14 +291,58 @@ std::vector<std::string> ReverseMoves(const std::vector<std::string> &moves) {
 }
 
 
-int main() {
-    std::string startString;
-    std::cin >> startString;
+std::string Project(const std::string &cube) {
+    std::string result;
+    for (auto ch : cube) {
+        if (ch == 'o')
+            ch = 'r';
+        else if (ch == 'y')
+            ch = 'w';
+        else if (ch == 'g')
+            ch = 'b';
+        result += ch;
+    }
+    return result;
+}
+
+
+bool Solve(const std::string &startCube, const std::string &endCube, const std::unordered_map<std::string, TMove> &allMoves, std::vector<std::string> &result) {
     std::vector<std::string> fwd, bwd;
-    if (DoSolve(startString, fwd, bwd)) {
-        for (const auto &id : fwd)
-            std::cout << ' ' << id;
-        for (const auto &id : ReverseMoves(bwd))
+    if (!DoSolve(startCube, endCube, allMoves, fwd, bwd))
+        return false;
+    result.reserve(fwd.size() + bwd.size());
+    for (const auto &id : fwd)
+        result.push_back(id);
+    for (const auto &id : ReverseMoves(bwd))
+        result.push_back(id);
+    return true;
+}
+
+
+bool Solve2Stages(const std::string &startCube, const std::string &endCube, std::vector<std::string> &result) {
+    auto allMoves = GenerateAllMoves();
+    if (!Solve(Project(startCube), Project(endCube), allMoves, result))
+        return false;
+    std::cout << result.size() << std::endl;
+    std::string cube = startCube;
+    for (const auto &move : result)
+        allMoves[move](cube);
+    result.clear();
+    std::cout << cube << std::endl;
+    return Solve(cube, endCube, GenerateAll2Moves(), result);
+}
+
+
+int main() {
+    //std::string startCube;
+    //std::cin >> startCube;
+    //std::string startCube = "yyyorwggbgbbbgbrywwowgggbgbgbbowryryoworor";
+    //std::string startCube = "wyywrwgbbgbggbgorwowyggbggbbbbyoryworyroor";
+    std::string startCube = "ooorrrgbggbgbgbroorrobggbgbbbgwwywwywywyyy";
+    std::string endCube = "rrrrrrbbbbbbbbboooooogggggggggwwwwwwyyyyyy";
+    std::vector<std::string> moves;
+    if (Solve2Stages(startCube, endCube, moves)) {
+        for (const auto &id : moves)
             std::cout << ' ' << id;
         std::cout << std::endl;
     } else {
