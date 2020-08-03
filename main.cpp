@@ -226,12 +226,12 @@ bool DoSolve(const std::string &startCube, const std::string &endCube, const std
     fwdReached[startCube];
     fwdQueue.push_back(startCube);
     bwdReached[endCube];
-    //bwdQueue.push_back(endCube);
+    bwdQueue.push_back(endCube);
     while (!fwdQueue.empty() || !bwdQueue.empty()) {
         if (!fwdQueue.empty()) {
             auto current = fwdQueue.front();
             auto currentMove = fwdReached[current];
-            std::cout << fwdQueue.size() << ' ' << fwdReached.size() << ' ' << currentMove.size() << std::endl;
+            //std::cout << fwdQueue.size() << ' ' << fwdReached.size() << ' ' << currentMove.size() << std::endl;
             fwdQueue.pop_front();
             for (const auto &move : allMoves) {
                 auto cube = current;
@@ -293,11 +293,10 @@ std::vector<std::string> ReverseMoves(const std::vector<std::string> &moves) {
 
 std::string Project(const std::string &cube) {
     std::string result;
-    for (auto ch : cube) {
+    for (size_t i = 0, n = cube.size(); i < n; ++i) {
+        char ch = cube[i];
         if (ch == 'o')
             ch = 'r';
-        else if (ch == 'y')
-            ch = 'w';
         else if (ch == 'g')
             ch = 'b';
         result += ch;
@@ -323,11 +322,11 @@ bool Solve2Stages(const std::string &startCube, const std::string &endCube, std:
     auto allMoves = GenerateAllMoves();
     if (!Solve(Project(startCube), Project(endCube), allMoves, result))
         return false;
-    std::cout << result.size() << std::endl;
+    //std::cout << result.size() << std::endl;
     std::string cube = startCube;
     for (const auto &move : result)
         allMoves[move](cube);
-    result.clear();
+    //result.clear();
     std::cout << cube << std::endl;
     return Solve(cube, endCube, GenerateAll2Moves(), result);
 }
