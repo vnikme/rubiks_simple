@@ -321,16 +321,57 @@ bool Solve(const std::string &startCube, const std::string &endCube, const std::
 
 
 bool Solve2Stages(const std::string &startCube, const std::string &endCube, std::vector<std::string> &result) {
+    if (startCube == endCube)
+        return true;
     auto allMoves = GenerateAllMoves();
-    if (!Solve(Project(startCube), Project(endCube), allMoves, result))
-        return false;
-    //std::cout << result.size() << std::endl;
-    std::string cube = startCube;
-    for (const auto &move : result)
-        allMoves[move](cube);
-    //result.clear();
-    //std::cout << cube << std::endl;
-    return Solve(cube, endCube, GenerateAll2Moves(), result);
+    auto all2Moves = GenerateAll2Moves();
+    std::unordered_map<std::string, std::vector<std::string>> reached, reached2;
+    std::list<std::string> queue;
+    reached2[endCube];
+    queue.push_back(endCube);
+    while (!queue.empty()) {
+        auto cur = queue.front();
+        queue.pop_front();
+        auto curPath = reached2[cur];
+        for (const auto &move : all2Moves) {
+            auto cube = cur;
+            move.second(cube);
+            if (reached2.find(cube) != reached2.end())
+                continue;
+            auto &path = reached2[cube];
+            path = curPath;
+            path.push_back(move.first);
+            queue.push_back(cube);
+            if (cube == startCube) {
+                result = ReverseMoves(path);
+                return true;
+            }
+        }
+    }
+    reached[startCube];
+    queue.push_back(startCube);
+    while (!queue.empty()) {
+        auto cur = queue.front();
+        queue.pop_front();
+        auto curPath = reached[cur];
+       for (const auto &move : allMoves) {
+            auto cube = cur;
+            move.second(cube);
+            if (reached.find(cube) != reached.end())
+                continue;
+            auto &path = reached[cube];
+            path = curPath;
+            path.push_back(move.first);
+            queue.push_back(cube);
+            if (reached2.find(cube) != reached2.end()) {
+                result = path;
+                auto back = ReverseMoves(reached2[cube]);
+                result.insert(result.end(), back.begin(), back.end());
+                return true;
+            }
+       }
+    }
+    return false;
 }
 
 
@@ -391,13 +432,13 @@ void RunBFSTest() {
 
 int main() {
     //RunRandomTests();
-    RunBFSTest();
-    return 0;
-    //std::string startCube;
-    //std::cin >> startCube;
+    //RunBFSTest();
+    //return 0;
+    std::string startCube;
+    std::cin >> startCube;
     //std::string startCube = "yyyorwggbgbbbgbrywwowgggbgbgbbowryryoworor";
     //std::string startCube = "wyywrwgbbgbggbgorwowyggbggbbbbyoryworyroor";
-    std::string startCube = "ooorrrgbggbgbgbroorrobggbgbbbgwwywwywywyyy";
+    //std::string startCube = "ooorrrgbggbgbgbroorrobggbgbbbgwwywwywywyyy";
     std::string endCube = "rrrrrrbbbbbbbbboooooogggggggggwwwwwwyyyyyy";
     std::vector<std::string> moves;
     if (Solve2Stages(startCube, endCube, moves)) {
