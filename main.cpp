@@ -297,6 +297,8 @@ std::string Project(const std::string &cube) {
         char ch = cube[i];
         if (ch == 'o')
             ch = 'r';
+        else if (ch == 'y')
+            ch = 'w';
         else if (ch == 'g')
             ch = 'b';
         result += ch;
@@ -327,12 +329,70 @@ bool Solve2Stages(const std::string &startCube, const std::string &endCube, std:
     for (const auto &move : result)
         allMoves[move](cube);
     //result.clear();
-    std::cout << cube << std::endl;
+    //std::cout << cube << std::endl;
     return Solve(cube, endCube, GenerateAll2Moves(), result);
 }
 
 
+void RunRandomTests() {
+    auto allMoves = GenerateAllMoves();
+    std::vector<std::string> moveCodes;
+    for (auto move : allMoves)
+        moveCodes.push_back(move.first);
+    std::string endCube = "rrrrrrbbbbbbbbboooooogggggggggwwwwwwyyyyyy";
+    std::string cube = endCube;
+    for (size_t i = 0; i < 1000; ++i) {
+        auto move = moveCodes[rand() % moveCodes.size()];
+        allMoves[move](cube);
+        std::vector<std::string> moves;
+        if (Solve2Stages(cube, endCube, moves))
+            std::cout << "OK" << std::endl;
+        else
+            std::cout << cube << std::endl;
+    }
+}
+
+
+void RunBFSTest() {
+    auto allMoves = GenerateAllMoves();
+    std::string endCube = "rrrrrrbbbbbbbbboooooogggggggggwwwwwwyyyyyy";
+    std::unordered_map<std::string, std::vector<std::string>> reached;
+    std::list<std::string> queue;
+    reached[endCube];
+    queue.push_back(endCube);
+    while (!queue.empty()) {
+        auto cur = queue.front();
+        queue.pop_front();
+        auto curPath = reached[cur];
+        for (const auto &move : allMoves) {
+            auto cube = cur;
+            move.second(cube);
+            if (reached.find(cube) != reached.end())
+                continue;
+            auto &path = reached[cube];
+            path = curPath;
+            path.push_back(move.first);
+            queue.push_back(cube);
+            if (Project(cube) == Project(endCube)) {
+                std::vector<std::string> moves;
+                if (!Solve2Stages(cube, endCube, moves)) {
+                    std::cout << "BAD " << cube;
+                    for (const auto &turn : path)
+                        std::cout << ' ' << turn;
+                    std::cout << std::endl;
+                } else {
+                    //std::cout << "OK " << cube << " " << path.size() << std::endl;
+                }
+            }
+        }
+    }
+}
+
+
 int main() {
+    //RunRandomTests();
+    RunBFSTest();
+    return 0;
     //std::string startCube;
     //std::cin >> startCube;
     //std::string startCube = "yyyorwggbgbbbgbrywwowgggbgbgbbowryryoworor";
