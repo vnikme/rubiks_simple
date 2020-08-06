@@ -394,11 +394,29 @@ void RunRandomTests() {
 }
 
 
-void RunBFSTest() {
+void FindBad2Cases() {
     auto allMoves = GenerateAllMoves();
+    auto all2Moves = GenerateAll2Moves();
     std::string endCube = "rrrrrrbbbbbbbbboooooogggggggggwwwwwwyyyyyy";
-    std::unordered_map<std::string, std::vector<std::string>> reached;
+    std::unordered_map<std::string, std::vector<std::string>> reached, reached2;
     std::list<std::string> queue;
+    reached2[endCube];
+    queue.push_back(endCube);
+    while (!queue.empty()) {
+        auto cur = queue.front();
+        queue.pop_front();
+        auto curPath = reached2[cur];
+        for (const auto &move : all2Moves) {
+            auto cube = cur;
+            move.second(cube);
+            if (reached2.find(cube) != reached2.end())
+                continue;
+            auto &path = reached2[cube];
+            path = curPath;
+            path.push_back(move.first);
+            queue.push_back(cube);
+        }
+    }
     reached[endCube];
     queue.push_back(endCube);
     while (!queue.empty()) {
@@ -414,16 +432,11 @@ void RunBFSTest() {
             path = curPath;
             path.push_back(move.first);
             queue.push_back(cube);
-            if (Project(cube) == Project(endCube)) {
-                std::vector<std::string> moves;
-                if (!Solve2Stages(cube, endCube, moves)) {
-                    std::cout << "BAD " << cube;
-                    for (const auto &turn : path)
-                        std::cout << ' ' << turn;
-                    std::cout << std::endl;
-                } else {
-                    //std::cout << "OK " << cube << " " << path.size() << std::endl;
-                }
+            if (Project(cube) == Project(endCube) && reached2.find(cube) == reached2.end()) {
+                std::cout << cube;
+                for (const auto &turn : path)
+                    std::cout << ' ' << turn;
+                std::cout << std::endl;
             }
         }
     }
@@ -432,7 +445,7 @@ void RunBFSTest() {
 
 int main() {
     //RunRandomTests();
-    //RunBFSTest();
+    //FindBad2Cases();
     //return 0;
     std::string startCube;
     std::cin >> startCube;
